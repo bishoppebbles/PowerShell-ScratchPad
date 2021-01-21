@@ -4,7 +4,7 @@
 
 $emailAddresses = Get-ChildItem
 foreach($email in $emailAddresses) {
-    Get-ChildItem $email -File -Recurse | Move-Item -Destination $email.FullName
+    Get-ChildItem $email -File -Recurse | Move-Item -Destination $email.FullName -Force  # -Force will overwrite a file with the same name if it already exists
     Get-ChildItem $email -Directory | Remove-Item -Recurse
 }
 
