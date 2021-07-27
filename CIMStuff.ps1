@@ -8,4 +8,4 @@ Get-CimInstance -ClassName Win32_UserAccount -ComputerName <computerName> -Filte
 Get-WmiObject -ClassName Win32_UserAccount -ComputerName <computerName> -Filter "LocalAccount='True'" | Format-Table Caption,Disabled -AutoSize
 
 # Remove a local user profile named "user_name"
-Get-CimInstance -ClassName Win32_UserProfile | Where-Object {$_.LocalPath('\')[-1] -eq 'user_name'} | Remove-CimInstance
+Invoke-Command -ComputerName <computer_name> -ScriptBlock {Get-CimInstance -ClassName Win32_UserProfile | Where-Object {$_.LocalPath.split('\')[-1] -eq '<username>'} | Remove-CimInstance}
