@@ -7,7 +7,7 @@ $tempStr     = [System.Text.StringBuilder]::new()  # temp string builder to rebu
 $baseUrl     = 'http://website.com'  # note: this is not the original URL
 $seedSite    = 'http://website.com/schemes/path/80a2354fa0510d9ecf99fa293f4cdf6a795d6d75325f33bfdd835fbe500ae33d51e2c05cb206ec1287eee8e95c99be81d6a974998a1802ec4bf70e5aeb85086bf684d3846726fb144ac5c048a1516760f23ceb194c'
 $linkRegex   = '(\/schemes\/path\/[0123456789abcdef]{170,})'  # regex to match the basePath path
-$basePath    = '80a2354fa0510d9ecf99fa293f4cdf6a795d6d75325f33bfdd835fbe500ae33d51e2c05cb206ec1287eee8e95c99be81d6a974998a1802ec4bf70e5aeb85086bf684d3846726fb144ac5c048a1516760f23ceb194c'
+$baseDoc    = '80a2354fa0510d9ecf99fa293f4cdf6a795d6d75325f33bfdd835fbe500ae33d51e2c05cb206ec1287eee8e95c99be81d6a974998a1802ec4bf70e5aeb85086bf684d3846726fb144ac5c048a1516760f23ceb194c'
 
 Write-Output 'STATUS: Starting downloads'
 
@@ -17,7 +17,7 @@ $site = Invoke-WebRequest $seedSite -UseBasicParsing
 $site.Content | Out-File 'BeginHere.html'
 
 # seed the initial hash table with urls
-$site.Links | Where-Object {$_.href -like "*$($basePath)*"} | 
+$site.Links | Where-Object {$_.href -like "*$($baseDoc)*"} | 
     ForEach-Object {
         if (-not $urls.ContainsKey($_.href)) {
             $urls.Add($_.href, $false)
@@ -40,7 +40,7 @@ while ($more) {
 
             # add links from a newly visited url that are unique to a temp hash table
             $temp.Links | 
-                Where-Object {$_.href -like "*$($basePath)*"} | 
+                Where-Object {$_.href -like "*$($baseDoc)*"} | 
                 ForEach-Object {
                     if ((-not $urls.ContainsKey($_.href)) -and (-not $tempUrls.ContainsKey($_.href))) {
                         $tempUrls.Add($_.href, $false)
