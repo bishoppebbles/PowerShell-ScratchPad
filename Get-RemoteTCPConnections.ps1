@@ -17,7 +17,7 @@ function netConnects() {
             $hashtable.$($_.Id) = $_.ProcessName
         }
 
-    Get-NetTCPConnection |
+    Get-NetTCPConnection -State Listen,Established |
         Select-Object @{Name = "Date"; Expression = {$date}},@{Name = "Time"; Expression = {$time}},LocalAddress,LocalPort,RemoteAddress,RemotePort,State,OwningProcess,@{Name = "ProcessName"; Expression = {$hashtable[[int]$_.OwningProcess]}}
 }
 
