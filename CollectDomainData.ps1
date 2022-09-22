@@ -25,11 +25,13 @@ Invoke-Command -ComputerName $computers -ScriptBlock {Get-Service} -SessionOptio
 	Export-Csv -Path services.csv -NoTypeInformation
 
 # Downloads, Documents, and Desktop files
-Invoke-Command -ComputerName $computers -ScriptBlock {Get-ChildItem -Path 'C:\Users\*\Downloads\','C:\Users\*\Documents\','C:\Users\*\Desktop\' -Recurse -SessionOption $sess | Select-Object Name,Extension,Directory,CreationTime,LastAccessTime,LastWriteTime,Attributes} |
+Invoke-Command -ComputerName $computers -ScriptBlock {Get-ChildItem -Path 'C:\Users\*\Downloads\','C:\Users\*\Documents\','C:\Users\*\Desktop\' -Recurse} -SessionOption $sess | 
+	Select-Object Name,Extension,Directory,CreationTime,LastAccessTime,LastWriteTime,Attributes} |
 	Export-Csv -Path files.csv -NoTypeInformation
 
 # 32/64 bit Programs
-Invoke-Command -ComputerName $computers -ScriptBlock {Get-ChildItem -Path 'C:\Program Files','C:\Program Files (x86)' | Select-Object Name,Directory,CreationTime,LastAccessTime,LastWriteTime,Attributes} -SessionOption $sess |
+Invoke-Command -ComputerName $computers -ScriptBlock {Get-ChildItem -Path 'C:\Program Files','C:\Program Files (x86)'} -SessionOption $sess | 
+	Select-Object Name,Directory,CreationTime,LastAccessTime,LastWriteTime,Attributes} -SessionOption $sess |
 	Export-Csv -Path programs.csv -NoTypeInformation
 
 # Network connections
