@@ -1,3 +1,20 @@
+<#
+Enable PS Remoting via Group Policy
+
+Enable the WinRM service (set IPv4/IPv6 filters to all (*))
+	Computer Configuration > Policies > Administrative Templates > Windows Components > Windows Remote Management (WinRM) > WinRM Service > Allow remote server management through WinRM
+
+Set the WS-Management service to automatic startup
+	Computer Configuration > Policies > Windows Settings > Security Settings > System Services > Windows Remote Management (WS-Management)
+
+Allow Windows Remote Management in the Firewall
+	Navigate to the following folder in the Group Policy Management Console (GPMC), right-click Inbound Rules, and click New Rule.
+
+		Computer Configuration > Policies > Windows Settings > Security Settings > Windows (Defender) Firewall with Advanced Security
+
+		In the Predefined field, select Windows Remote Management and then follow the wizard to add the new firewall rule.
+#>
+
 # Pull computer objects listed in the Directory
 $computers = (Get-ADComputer -Filter *).Name
 
