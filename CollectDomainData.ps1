@@ -72,3 +72,21 @@ Invoke-Command -Session $sessions -ScriptBlock ${function:netConnects} |
     Export-Csv -Path .\net.csv -Append -NoTypeInformation
     
 Remove-PSSession -Session $sessions
+
+# Get domain user account information
+Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,AllowReversiblePasswordEncryption,CannotChangePassword,DisplayName,Name,Enabled,LastLogonDate,LockedOut,PasswordExpired,PasswordNeverExpires,PasswordNotRequired,SamAccountName,SmartcardLogonRequired |
+	Export-Csv -Path domain_users.csv -NoTypeInformation
+
+# Get domain computer account info
+Get-ADComputer -Filter * -Properties DistinguishedName,Enabled,IPv4Address,LastLogonDate,Name,OperatingSystem,SamAccountName |
+	Export-Csv -Path domain_computers.csv -NoTypeInformation
+
+# Doesn't work!!! Get privileged domain account group memberships
+Get-ADGroup -Filter * -Properties * | 
+	Get-ADGroupMember -Recursive | 
+	Where-Object {
+		($_.objectClass -like "user") -and 
+		($_.SamAccountName -like "*adm*" -or $_.SamAccountName -like "*admin*" -or $_.SamAccountName -like "*isso*")
+	} |
+	Select-Object distinguishedName,name,SamAccountName |
+	Export-Csv -Path domain_admins.csv -NoTypeInformation
