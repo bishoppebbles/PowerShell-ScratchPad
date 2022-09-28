@@ -33,7 +33,7 @@ Invoke-Command -Session $sessions -ScriptBlock {Get-LocalUser} |
 	Export-Csv -Path local_users.csv -NoTypeInformation
 
 # Processes
-Invoke-Command -Session $sessions -ScriptBlock {Get-Process | Select-Object Name,Id,Path,Company,Description,ProductVersion,StartTime} |
+Invoke-Command -Session $sessions -ScriptBlock {Get-Process -IncludeUserName | Select-Object Name,Id,Path,UserName,Company,Description,ProductVersion,StartTime} |
 	Export-Csv -Path processes.csv -NoTypeInformation
 
 # Scheduled tasks
