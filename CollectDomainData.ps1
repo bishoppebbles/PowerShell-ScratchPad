@@ -81,12 +81,25 @@ Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,Allow
 Get-ADComputer -Filter * -Properties DistinguishedName,Enabled,IPv4Address,LastLogonDate,Name,OperatingSystem,SamAccountName |
 	Export-Csv -Path domain_computers.csv -NoTypeInformation
 
-# Doesn't work!!! Get privileged domain account group memberships
-Get-ADGroup -Filter * -Properties * | 
-	Get-ADGroupMember -Recursive | 
-	Where-Object {
-		($_.objectClass -like "user") -and 
-		($_.SamAccountName -like "*adm*" -or $_.SamAccountName -like "*admin*" -or $_.SamAccountName -like "*isso*")
-	} |
-	Select-Object distinguishedName,name,SamAccountName |
-	Export-Csv -Path domain_admins.csv -NoTypeInformation
+# Get privileged domain account group memberships
+$adminMemberOf = New-Object System.Collections.ArrayList
+$groups = Get-ADGroup -Filter * -Properties *
+
+foreach($group in $groups) {
+    Get-ADGroupMember -Identity $group.SamAccountName -Recursive | 
+	    Where-Object {
+	        ($_.objectClass -like "user") -and 
+		    ($_.SamAccountName -like "*adm*" -or $_.SamAccountName -like "*admin*" -or $_.SamAccountName -like "*isso*")
+	    } |
+        ForEach-Object {
+            $adminMemberOf.Add([PSCustomObject]@{
+                UserSamAccountName  = $_.SamAccountName
+                UserDN              = $_.distinguishedName
+                UserName            = $_.name
+                GroupSamAccountName = $group.SamAccountName
+                GroupDN             = $group.DistinguishedName
+            }) | Out-Null
+        }
+}
+
+$adminMemberOf | Export-Csv -Path domain_admins.csv -NoTypeInformation
