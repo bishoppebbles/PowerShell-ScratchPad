@@ -1,4 +1,4 @@
-<#
+﻿<#
 Enable PS Remoting via Group Policy
 
 Enable the WinRM service (set IPv4/IPv6 filters to all (*))
@@ -13,6 +13,30 @@ Allow Windows Remote Management in the Firewall
 		Computer Configuration > Policies > Windows Settings > Security Settings > Windows (Defender) Firewall with Advanced Security
 
 		In the Predefined field, select Windows Remote Management and then follow the wizard to add the new firewall rule.
+#>
+
+
+<#
+Functions
+#>
+
+function netConnects() {
+    $hashtable = @{}
+    $date = Get-Date -Format "MM/dd/yyyy"
+    $time = Get-Date -Format "HH:mm"
+        
+    Get-Process | 
+        ForEach-Object { 
+            $hashtable.$($_.Id) = $_.ProcessName
+        }
+
+    Get-NetTCPConnection -State Listen,Established |
+        Select-Object @{Name = "Date"; Expression = {$date}},@{Name = "Time"; Expression = {$time}},LocalAddress,LocalPort,RemoteAddress,RemotePort,State,OwningProcess,@{Name = "ProcessName"; Expression = {$hashtable[[int]$_.OwningProcess]}}
+}
+
+
+<#
+Pull remote system data
 #>
 
 # Pull computer objects listed in the Directory
@@ -53,25 +77,54 @@ Invoke-Command -Session $sessions -ScriptBlock {Get-ChildItem -Path 'C:\Program 
 	Export-Csv -Path programs.csv -NoTypeInformation
 
 # Network connections
-function netConnects() {
-    $hashtable = @{}
-    $date = Get-Date -Format "MM/dd/yyyy"
-    $time = Get-Date -Format "HH:mm"
-
-        
-    Get-Process | 
-        ForEach-Object { 
-            $hashtable.$($_.Id) = $_.ProcessName
-        }
-
-    Get-NetTCPConnection -State Listen,Established |
-        Select-Object @{Name = "Date"; Expression = {$date}},@{Name = "Time"; Expression = {$time}},LocalAddress,LocalPort,RemoteAddress,RemotePort,State,OwningProcess,@{Name = "ProcessName"; Expression = {$hashtable[[int]$_.OwningProcess]}}
-}
-
 Invoke-Command -Session $sessions -ScriptBlock ${function:netConnects} |
     Export-Csv -Path .\net.csv -Append -NoTypeInformation
     
 Remove-PSSession -Session $sessions
+
+
+<#
+Pull data from the local system and append to the existing CSV files
+#>
+
+# Local Administrators group membership
+Get-LocalGroupMember Administrators |
+	Export-Csv -Path local_admins_group.csv -Append -NoTypeInformation
+
+# Local user accounts
+Get-LocalUser |
+	Export-Csv -Path local_users.csv -Append -NoTypeInformation
+
+# Processes
+Get-Process -IncludeUserName |
+    Select-Object Name,Id,Path,UserName,Company,Description,ProductVersion,StartTime |
+	Export-Csv -Path processes.csv -Append -NoTypeInformation
+
+# Scheduled tasks
+Get-ScheduledTask |
+	Export-Csv -Path scheduled_tasks.csv -Append -NoTypeInformation
+
+# Services
+Get-Service |
+	Export-Csv -Path services.csv -Append -NoTypeInformation
+
+# Downloads, Documents, and Desktop files
+Get-ChildItem -Path 'C:\Users\*\Downloads\','C:\Users\*\Documents\','C:\Users\*\Desktop\' -Recurse |
+    Select-Object Name,Extension,Directory,CreationTime,LastAccessTime,LastWriteTime,Attributes |
+	Export-Csv -Path files.csv -Append -NoTypeInformation
+
+# 32/64 bit Programs
+Get-ChildItem -Path 'C:\Program Files','C:\Program Files (x86)' |
+    Select-Object Name,Directory,CreationTime,LastAccessTime,LastWriteTime,Attributes |
+	Export-Csv -Path programs.csv -Append -NoTypeInformation
+
+netConnects |
+    Export-Csv -Path .\net.csv -Append -NoTypeInformation
+
+
+<#
+Pull Active Directory datasets
+#>
 
 # Get domain user account information
 Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,AllowReversiblePasswordEncryption,CannotChangePassword,DisplayName,Name,Enabled,LastLogonDate,LockedOut,PasswordExpired,PasswordNeverExpires,PasswordNotRequired,SamAccountName,SmartcardLogonRequired |
