@@ -15,6 +15,7 @@ Allow Windows Remote Management in the Firewall
 		In the Predefined field, select Windows Remote Management and then follow the wizard to add the new firewall rule.
 #>
 
+$distinguisedName = (Get-ADDomain).DistinguishedName
 
 <#
 Functions
@@ -34,26 +35,115 @@ function netConnects() {
         Select-Object @{Name = "Date"; Expression = {$date}},@{Name = "Time"; Expression = {$time}},LocalAddress,LocalPort,RemoteAddress,RemotePort,State,OwningProcess,@{Name = "ProcessName"; Expression = {$hashtable[[int]$_.OwningProcess]}}
 }
 
+function localUsers() {
+    try {
+        Get-LocalUser
+    } catch [System.Management.Automation.RuntimeException] {
+        # Get-CimInstance -ClassName Win32_UserAccount -Filter "LocalAccount='True'" -Property * | Select-Object Name,Domain,SID,PasswordExpires,Disabled,Lockout,PasswordRequired,PasswordChangeable,Description
+        
+        $adsi = [ADSI]"WinNT://$env:COMPUTERNAME"
+        $Users = $adsi.Children | Where-Object {$_.SchemaClassName  -eq 'user'}
+
+        $date = Get-Date
+
+        $Users | ForEach-Object {
+            Write-Output "$($_.Name.value)`t$($date.AddSeconds(-1 * $_.PasswordAge.value))`t$((New-Object System.Security.Principal.SecurityIdentifier($_.objectSid.value,0)).Value)"
+}
+    }
+}
+
+<#
+(New-Object System.Security.Principal.SecurityIdentifier($Users[0].objectSid.value,0)).Value
+
+# Function code source and credit to Boe Prox
+# Reporting on Local Accounts Using PowerShell 
+# https://mcpmag.com/articles/2015/04/15/reporting-on-local-accounts.aspx
+
+Function Convert-UserFlag  {
+    Param ($UserFlag)
+
+    $List = New-Object System.Collections.ArrayList
+
+    Switch  ($UserFlag) {
+        ($UserFlag -bor 0x0001)     {[void]$List.Add('SCRIPT')}
+        ($UserFlag -bor 0x0002)     {[void]$List.Add('ACCOUNTDISABLE')}
+        ($UserFlag -bor 0x0008)     {[void]$List.Add('HOMEDIR_REQUIRED')}
+        ($UserFlag -bor 0x0010)     {[void]$List.Add('LOCKOUT')}
+        ($UserFlag -bor 0x0020)     {[void]$List.Add('PASSWD_NOTREQD')}
+        ($UserFlag -bor 0x0040)     {[void]$List.Add('PASSWD_CANT_CHANGE')}
+        ($UserFlag -bor 0x0080)     {[void]$List.Add('ENCRYPTED_TEXT_PWD_ALLOWED')}
+        ($UserFlag -bor 0x0100)     {[void]$List.Add('TEMP_DUPLICATE_ACCOUNT')}
+        ($UserFlag -bor 0x0200)     {[void]$List.Add('NORMAL_ACCOUNT')}
+        ($UserFlag -bor 0x0800)     {[void]$List.Add('INTERDOMAIN_TRUST_ACCOUNT')}
+        ($UserFlag -bor 0x1000)     {[void]$List.Add('WORKSTATION_TRUST_ACCOUNT')}
+        ($UserFlag -bor 0x2000)     {[void]$List.Add('SERVER_TRUST_ACCOUNT')}
+        ($UserFlag -bor 0x10000)    {[void]$List.Add('DONT_EXPIRE_PASSWORD')}
+        ($UserFlag -bor 0x20000)    {[void]$List.Add('MNS_LOGON_ACCOUNT')}
+        ($UserFlag -bor 0x40000)    {[void]$List.Add('SMARTCARD_REQUIRED')}
+        ($UserFlag -bor 0x80000)    {[void]$List.Add('TRUSTED_FOR_DELEGATION')}
+        ($UserFlag -bor 0x100000)   {[void]$List.Add('NOT_DELEGATED')}
+        ($UserFlag -bor 0x200000)   {[void]$List.Add('USE_DES_KEY_ONLY')}
+        ($UserFlag -bor 0x400000)   {[void]$List.Add('DONT_REQ_PREAUTH')}
+        ($UserFlag -bor 0x800000)   {[void]$List.Add('PASSWORD_EXPIRED')}
+        ($UserFlag -bor 0x1000000)  {[void]$List.Add('TRUSTED_TO_AUTH_FOR_DELEGATION')}
+        ($UserFlag -bor 0x04000000) {[void]$List.Add('PARTIAL_SECRETS_ACCOUNT')}
+    }
+
+    $List -join ', '
+}
+
+#>
+
 
 <#
 Pull remote system data
 #>
 
-# Pull computer objects listed in the Directory
-$computers = (Get-ADComputer -Filter *).Name
+# Pull Windows computer objects listed in the Directory
+$computers = Get-ADComputer -Filter * -SearchBase $distinguisedName -Properties OperatingSystem,LastLogonDate |
+                Where-Object {$_.OperatingSystem -like "Windows*"}
 
 # Minimize your presence and don't create a user profile on every system (e.g., C:\Users\<username>)
 $sessionOpt = New-PSSessionOption -NoMachineProfile
 
+$Error.Clear()
+$failedPSSessions = New-Object System.Collections.ArrayList
+
 # Create reusable PS Sessions
-$sessions = New-PSSession -ComputerName $computers -SessionOption $sessionOpt
+$sessions = New-PSSession -ComputerName $computers.Name -SessionOption $sessionOpt -ErrorAction SilentlyContinue
+
+if ($Error.Count -gt 0) {    
+    Write-Output "PowerShell Remoting Session Failures:"
+
+    $Error |
+        Where-Object {$_.Exception -ne $null} |
+            ForEach-Object {
+                if ($_.Exception.GetType().FullName -like "System.Management.Automation.Remoting.PSRemotingTransportException") {
+                    if ($_.ErrorDetails -match "\[(.*)\]") {
+                        $failedPSSessions.Add($Matches[1]) | Out-Null
+                    }
+                }
+            }
+    $failedPSSessions
+}
+
+<#
+foreach($computer in $failedSessions) {
+    $cimSessOption = New-CimSessionOption -Protocol Dcom
+    $cimSession = New-CimSession -ComputerName $computer -SessionOption $cimSessOption
+    Invoke-CimMethod -ClassName 'Win32_Process' -MethodName 'Create' -CimSession $cimSession -Arguments @{CommandLine = "powershell Start-Process powershell -ArgumentList 'Enable-PSRemoting -Force'"}
+}
+#>
 
 # Local Administrators group membership
-Invoke-Command -Session $sessions -ScriptBlock {Get-LocalGroupMember Administrators} | 
+# System.Management.Automation.RemoteException
+# Source: Ben Baird's Get-LocalGroupMembers (8/12/2011) on Microsoft's TechNet (page no longer valid)
+# (Get-CimInstance -Query "SELECT * FROM Win32_GroupUser WHERE GroupComponent=`"Win32_Group.Domain='$env:COMPUTERNAME',Name='Administrators'`"").PartComponent.Name
+Invoke-Command -Session $sessions -ScriptBlock {Get-LocalGroupMember Administrators | Select-Object PSComputerName,Name,SID,PrincipalSource,ObjectClass} | 
 	Export-Csv -Path local_admins_group.csv -NoTypeInformation
 
 # Local user accounts
-Invoke-Command -Session $sessions -ScriptBlock {Get-LocalUser} | 
+Invoke-Command -Session $sessions -ScriptBlock ${function:localUsers} | 
 	Export-Csv -Path local_users.csv -NoTypeInformation
 
 # Processes
@@ -127,16 +217,16 @@ Pull Active Directory datasets
 #>
 
 # Get domain user account information
-Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,AllowReversiblePasswordEncryption,CannotChangePassword,DisplayName,Name,Enabled,LastLogonDate,LockedOut,PasswordExpired,PasswordNeverExpires,PasswordNotRequired,SamAccountName,SmartcardLogonRequired |
+Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,AllowReversiblePasswordEncryption,CannotChangePassword,DisplayName,Name,Enabled,LastLogonDate,LockedOut,PasswordExpired,PasswordNeverExpires,PasswordNotRequired,SamAccountName,SmartcardLogonRequired -SearchBase $distinguisedName |
 	Export-Csv -Path domain_users.csv -NoTypeInformation
 
 # Get domain computer account info
-Get-ADComputer -Filter * -Properties DistinguishedName,Enabled,IPv4Address,LastLogonDate,Name,OperatingSystem,SamAccountName |
+Get-ADComputer -Filter * -Properties DistinguishedName,Enabled,IPv4Address,LastLogonDate,Name,OperatingSystem,SamAccountName -SearchBase $distinguisedName |
 	Export-Csv -Path domain_computers.csv -NoTypeInformation
 
 # Get privileged domain account group memberships
 $adminMemberOf = New-Object System.Collections.ArrayList
-$groups = Get-ADGroup -Filter * -Properties *
+$groups = Get-ADGroup -Filter * -Properties * -SearchBase $distinguisedName
 
 foreach($group in $groups) {
     Get-ADGroupMember -Identity $group.SamAccountName -Recursive | 
