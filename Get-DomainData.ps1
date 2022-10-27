@@ -48,7 +48,7 @@ function localUsers() {
 
         $Users | ForEach-Object {
             Write-Output "$($_.Name.value)`t$($date.AddSeconds(-1 * $_.PasswordAge.value))`t$((New-Object System.Security.Principal.SecurityIdentifier($_.objectSid.value,0)).Value)"
-}
+        }
     }
 }
 
@@ -91,8 +91,61 @@ Function Convert-UserFlag  {
 
     $List -join ', '
 }
-
 #>
+
+
+<#
+    # ADSI for getting local group membership
+    # https://mcpmag.com/articles/2015/06/18/reporting-on-local-groups.aspx
+    # https://gist.github.com/jdhitsolutions/a37a8a34b5b99bd3e132
+    Function  ConvertTo-SID {
+        Param([byte[]]$BinarySID)
+            
+        (New-Object System.Security.Principal.SecurityIdentifier($BinarySID,0)).Value
+    }
+
+    Function  Get-LocalGroupMember {
+        Param($Group)
+            
+        $group.Invoke('members') | ForEach-Object {
+            @{
+                $_.GetType().InvokeMember("Name", 'GetProperty', $null, $_, $null) =
+                $_.GetType().InvokeMember("Class", 'GetProperty', $null, $_, $null)
+            }
+            #$_.GetType().InvokeMember("ADSPath", 'GetProperty', $null, $_, $null)
+        }
+    }
+
+    $adsi  = [ADSI]"WinNT://$env:COMPUTERNAME"
+    $groups  = $adsi.Children | Where-Object {$_.SchemaClassName -eq 'group'}
+
+    if ($groups) {
+        $groupMembers = $groups | 
+            ForEach-Object {
+                Get-LocalGroupMember -Group $_
+                [pscustomobject]@{
+                    Computername = $Computer
+                    Name         = $_.Name[0]
+                    Members      = (Get-LocalGroupMember -Group $_)
+                    SID          = (ConvertTo-SID -BinarySID $_.ObjectSID[0])
+                }
+            } | Where-Object {$_.Members -notlike ''}
+    }
+
+
+    foreach($group in $groupMembers) {
+        foreach($member in $group.Members) {
+            [pscustomobject]@{
+                Computername = $group.ComputerName
+                Name         = $group.Name
+                Members      = $($member.Keys)
+                Class        = $($member.Values)
+                SID          = $group.SID
+            }
+        }
+    }
+#>
+
 
 
 <#
