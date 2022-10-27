@@ -94,17 +94,17 @@ Function Convert-UserFlag  {
 #>
 
 
-<#
+function adsiGetLocalGroupMembers() {
     # ADSI for getting local group membership
     # https://mcpmag.com/articles/2015/06/18/reporting-on-local-groups.aspx
     # https://gist.github.com/jdhitsolutions/a37a8a34b5b99bd3e132
-    Function  ConvertTo-SID {
+    function  ConvertTo-SID {
         Param([byte[]]$BinarySID)
             
         (New-Object System.Security.Principal.SecurityIdentifier($BinarySID,0)).Value
     }
 
-    Function  Get-LocalGroupMember {
+    function  Get-LocalGroupMember {
         Param($Group)
             
         $group.Invoke('members') | ForEach-Object {
@@ -124,7 +124,7 @@ Function Convert-UserFlag  {
             ForEach-Object {
                 Get-LocalGroupMember -Group $_
                 [pscustomobject]@{
-                    Computername = $Computer
+                    Computername = $env:COMPUTERNAME
                     Name         = $_.Name[0]
                     Members      = (Get-LocalGroupMember -Group $_)
                     SID          = (ConvertTo-SID -BinarySID $_.ObjectSID[0])
@@ -144,9 +144,11 @@ Function Convert-UserFlag  {
             }
         }
     }
-#>
+}
 
-
+Invoke-Command -Session $sessions -ScriptBlock $function:adsiGetLocalGroupMembers |
+    Select-Object Computername,Name,Members,Class,SID |
+    Export-Csv -Path local_admins_group.csv -NoTypeInformation
 
 <#
 Pull remote system data
@@ -196,7 +198,7 @@ Invoke-Command -Session $sessions -ScriptBlock {Get-LocalGroupMember Administrat
 	Export-Csv -Path local_admins_group.csv -NoTypeInformation
 
 # Local user accounts
-Invoke-Command -Session $sessions -ScriptBlock ${function:localUsers} | 
+Invoke-Command -Session $sessions -ScriptBlock $function:localUsers | 
 	Export-Csv -Path local_users.csv -NoTypeInformation
 
 # Processes
