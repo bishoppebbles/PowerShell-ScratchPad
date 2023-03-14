@@ -1,4 +1,4 @@
-﻿<#
+<#
 Enable PS Remoting via Group Policy
 
 Enable the WinRM service (set IPv4/IPv6 filters to all (*))
@@ -15,7 +15,7 @@ Allow Windows Remote Management in the Firewall
 		In the Predefined field, select Windows Remote Management and then follow the wizard to add the new firewall rule.
 #>
 
-$distinguisedName = (Get-ADDomain).DistinguishedName
+$distinguishedName = (Get-ADDomain).DistinguishedName
 
 <#
 Functions
@@ -155,7 +155,7 @@ Pull remote system data
 #>
 
 # Pull Windows computer objects listed in the Directory
-$computers = Get-ADComputer -Filter * -SearchBase $distinguisedName -Properties OperatingSystem,LastLogonDate |
+$computers = Get-ADComputer -Filter * -SearchBase $distinguishedName -Properties OperatingSystem,LastLogonDate |
                 Where-Object {$_.OperatingSystem -like "Windows*"}
 
 # Minimize your presence and don't create a user profile on every system (e.g., C:\Users\<username>)
@@ -165,7 +165,7 @@ $Error.Clear()
 $failedPSSessions = New-Object System.Collections.ArrayList
 
 # Create reusable PS Sessions
-$sessions = New-PSSession -ComputerName $computers.Name -SessionOption $sessionOpt -ErrorAction SilentlyContinue
+$sessions = New-PSSession -ComputerName $computers.Name -SessionOption $sessionOpt
 
 if ($Error.Count -gt 0) {    
     Write-Output "PowerShell Remoting Session Failures:"
@@ -198,7 +198,7 @@ Invoke-Command -Session $sessions -ScriptBlock {Get-LocalGroupMember Administrat
 	Export-Csv -Path local_admins_group.csv -NoTypeInformation
 
 # Local user accounts
-Invoke-Command -Session $sessions -ScriptBlock $function:localUsers | 
+Invoke-Command -Session $sessions -ScriptBlock ${function:localUsers} | 
 	Export-Csv -Path local_users.csv -NoTypeInformation
 
 # Processes
@@ -272,16 +272,16 @@ Pull Active Directory datasets
 #>
 
 # Get domain user account information
-Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,AllowReversiblePasswordEncryption,CannotChangePassword,DisplayName,Name,Enabled,LastLogonDate,LockedOut,PasswordExpired,PasswordNeverExpires,PasswordNotRequired,SamAccountName,SmartcardLogonRequired -SearchBase $distinguisedName |
+Get-ADUser -Filter * -Properties AccountExpirationDate,AccountNotDelegated,AllowReversiblePasswordEncryption,CannotChangePassword,DisplayName,Name,Enabled,LastLogonDate,LockedOut,PasswordExpired,PasswordNeverExpires,PasswordNotRequired,SamAccountName,SmartcardLogonRequired -SearchBase $distinguishedName |
 	Export-Csv -Path domain_users.csv -NoTypeInformation
 
 # Get domain computer account info
-Get-ADComputer -Filter * -Properties DistinguishedName,Enabled,IPv4Address,LastLogonDate,Name,OperatingSystem,SamAccountName -SearchBase $distinguisedName |
+Get-ADComputer -Filter * -Properties DistinguishedName,Enabled,IPv4Address,LastLogonDate,Name,OperatingSystem,SamAccountName -SearchBase $distinguishedName |
 	Export-Csv -Path domain_computers.csv -NoTypeInformation
 
 # Get privileged domain account group memberships
 $adminMemberOf = New-Object System.Collections.ArrayList
-$groups = Get-ADGroup -Filter * -Properties * -SearchBase $distinguisedName
+$groups = Get-ADGroup -Filter * -Properties * -SearchBase $distinguishedName
 
 foreach($group in $groups) {
     Get-ADGroupMember -Identity $group.SamAccountName -Recursive | 
