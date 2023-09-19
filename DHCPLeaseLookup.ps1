@@ -1,1 +1,4 @@
-Get-DhcpServerv4Scope -ComputerName <dhcp_server> | Get-DhcpServerv4Lease -ComputerName <dhcp_server>
+$dhcp = '<dhcp_server>'
+Get-DHCPServerv4Scope -ComputerName $dhcp | 
+  Get-DHCPServerv4Lease -ComputerName $dhcp -AllLeases | 
+  Export-Csv dhcp_leases.csv -NoTypeInformation
