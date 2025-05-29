@@ -55,6 +55,12 @@ $searcher =  [adsiSearcher]"(&(primaryGroupId=515)(msExchExtensionCustomAttribut
 $searcher.SearchRoot = [ADSI]"LDAP://$(${env:LOGONSERVER}.Trim('\'))/$sourceName"
 $searcher.SearchScope =  [System.DirectoryServices.SearchScope]::OneLevel 
 $searcher.PageSize = 1000
-$searcher.PropertiesToLoad.Add('name') | Out-Null
+$searcher.PropertiesToLoad.Add('Name') | Out-Null
+$searcher.PropertiesToLoad.Add('DistinguishedName') | Out-Null
+$searcher.PropertiesToLoad.Add('samAccountName') | Out-Null
+# didn't work - $searcher.PropertiesToLoad.Add('Enabled') | Out-Null
+# can't remember if it worked - $searcher.PropertiesToLoad.Add('OperatingSystem') | Out-Null
+# didn't work - $searcher.PropertiesToLoad.Add('IPv4Address') | Out-Null
+# didn't work - $searcher.PropertiesToLoad.Add('LastLogonDate') | Out-Null
 $searcher.Sort.PropertyName = 'name'
-$computers = $searcher.FindAll().Properties.name #[0]
+$computers = $searcher.FindAll().Properties
