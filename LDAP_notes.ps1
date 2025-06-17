@@ -13,10 +13,9 @@ $computers = $searcher.FindAll()
     param (
         [Parameter(Mandatory = $true)] [string]$computer
     )
-    #winrm quickconfig [-quiet]  # enable all required PS remoting settings
-    #sc.exe \\$computer config winrm start=auto
-    #sc.exe \\$computer start winrm
-    sc.exe \\$computer query winrm
+    sc.exe \\$computer config winrm start=auto
+    sc.exe \\$computer start winrm
+    #sc.exe \\$computer query winrm
 }
 
 $jobBatchSize = 50
@@ -30,7 +29,7 @@ foreach($computer in $computers.Properties.name) {
     # Run jobs in batches, also ensure the final batch of jobs is run if the total number of jobs is less than $jobBatchSize
     if($i % $jobBatchSize -eq 0 -or $i -eq ($Computers | Measure-Object).Count) {
         Get-Job | Wait-Job -Timeout 90
-        # Get-Job | Receive-Job # supresses the job output
+        Get-Job | Receive-Job # supresses the job output
         Get-Job | Stop-Job      # must be run first to remove a job if the job if it is still running
         Get-Job | Remove-Job
     }
