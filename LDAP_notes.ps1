@@ -1,9 +1,9 @@
 # Populate list of workstations
 $computers = @()
-$Name = 'wuhan'
-$Domain = 'state.sbu'
-$OUdistinguishedName = 'OU=State Dept,DC=state,DC=sbu'
-$searcher =  [adsiSearcher]"(&(samAccountType=805306369)(msExchExtensionCustomAttribute1=iPostSite|$Name))"
+$Name = 'site'
+$Domain = 'domain.com'
+$OUdistinguishedName = 'OU=location,DC=domain,DC=com'
+$searcher =  [adsiSearcher]"(&(samAccountType=805306369)(attribute=$value))"
 $searcher.SearchRoot = [ADSI]"LDAP://$Domain/$OUdistinguishedname"
 $computers = $searcher.FindAll()
 
